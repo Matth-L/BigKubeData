@@ -9,44 +9,75 @@ import socket
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import AuthenticationException
 from elasticsearch.helpers import bulk 
-
+import logging
+from elasticsearch.exceptions import NotFoundError
 # building random user for the database
 from faker import Faker
 
+fake = Faker()
 
+logging.basicConfig(
+    level=logging.INFO,  # Set the logging level (could be DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Log to console
+        logging.FileHandler('app.log', mode='a')  # Log to file 'app.log'
+    ]
+)
+logger = logging.getLogger()
 mysql_host = "mysql.default.svc.cluster.local"
 
 try:
-    print(f"Resolving {mysql_host}...")
+    logger.info(f"Resolving {mysql_host}...")
     ip = socket.gethostbyname(mysql_host)
-    print(f"DNS resolution successful: {mysql_host} → {ip}")
+    logger.info(f"DNS resolution successful: {mysql_host} → {ip}")
 except socket.gaierror as e:
-    print(f"DNS resolution failed: {e}")
+    logger.error(f"DNS resolution failed: {e}")
 
-def init_db():
+def get_db():
+    db = mysql.connector.connect(
+    host=mysql_host,
+    user="root",
+    password="password",
+    database="data",
+    port=3306
+)
+    return db
+
+def get_data_from_db():
     """
     we will use this function once, to put all the database in elastic search
     
     return : the database
 
     """
-    db = mysql.connector.connect(
-        host=mysql_host,
-        user="root",
-        password="password",
-        database="data",
-        port=3306
-    )
+    db = get_db()
     
     if db.is_connected():
-        print("Successfully connected to the database.")
+        logger.info("Successfully connected to the database.")
 
     cursor = db.cursor()
     cursor.execute("SELECT * FROM student")  
     results = cursor.fetchall()
     cursor.close()
-    mydb.close()
+    db.close()
     return results
+
+
+def is_data_in_es(client, doc_id, index_name):
+    """
+    Check if the data already exists in Elasticsearch by `id`.
+    """
+    try:
+        response = client.get(index=index_name, id=doc_id)
+        logger.info(f"Document found: {response}")
+        return True
+    except NotFoundError:
+        logger.info(f"Document with id {doc_id} not found in index {index_name}.")
+        return False
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return False
 
 def get_elastic_client(password):
     """
@@ -70,27 +101,64 @@ def get_elastic_client(password):
 
     return client
 
-def insert_to_elasticsearch(mysql_data):
-    client = get_elastic_client() 
+def insert_to_elasticsearch(client, mysql_data,index_name):
 
-    # Index name where we will store data 
-    index_name = "students_data"
 
     # Prepare the data for Elasticsearch
     actions = []
     for row in mysql_data:
-        action = {
-            "_op_type": "index",  # We use 'index' to add data
-            "_index": index_name,  # Index name in Elasticsearch
-            "_source": {
-                "id": row[0],  
-                "name": row[1], 
-                "age": row[2],  
+        doc_id = row[0]  # Assuming the first column is the `id` field
+        logger.info(f"ID: {(row[0])}")
+        if not is_data_in_es(client,doc_id,index_name):
+            action = {
+                "_op_type": "index",  # We use 'index' to add data
+                "_index": index_name,  # Index name in Elasticsearch
+                "_id": doc_id,  # Use doc_id as Elasticsearch document ID
+                "_source": {
+                    "first_name": row[1], 
+                    "last_name": row[2],
+                    "age" : row[3]
+                }
             }
-        }
-        actions.append(action)
+            actions.append(action)
     success, failed = bulk(client, actions, index=index_name)
+    logger.info(f"Inserted {success} records. Failed: {failed}.")
+
+def insert_random_students(number_of_records):
+    db = get_db()
+    
+    cursor = db.cursor()
+
+    # Insert random student data
+    for _ in range(number_of_records):
+        first_name = fake.first_name()
+        last_name = fake.last_name()
+        age = fake.random_int(min=10, max=100)  
+        
+        insert_query = """
+            INSERT INTO student (first_name, last_name, age) 
+            VALUES (%s, %s, %s)
+        """
+        values = (first_name, last_name, age)
+        
+        cursor.execute(insert_query, values)
+    
+    db.commit()
+    cursor.close()
+    db.close()
 
 
-mysql_data = init_db()  # Fetch data from MySQL
-insert_to_elasticsearch(mysql_data)  # Insert data into Elasticsearch
+es_client = get_elastic_client("Z1oYwP43C8fYb71Bm4j956aE")
+index_name = "students_data"
+
+for _ in range(10):
+    # select all values
+    mysql_data = get_data_from_db()
+    #push new values to elastic search
+    insert_to_elasticsearch(es_client,mysql_data,index_name) 
+    logger.info("Sleeping for 20 seconds before next operation...")
+    sleep(10)
+    logger.info("Inserting random data...")
+    insert_random_students(1)
+
+

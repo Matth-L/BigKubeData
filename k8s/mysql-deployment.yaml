@@ -56,15 +56,14 @@ data:
         id INT AUTO_INCREMENT PRIMARY KEY,
         first_name VARCHAR(50) NOT NULL,
         last_name VARCHAR(50) NOT NULL,
-        email VARCHAR(100) NOT NULL UNIQUE,
-        registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        age INT
     ) ENGINE=InnoDB;
 
-    INSERT INTO student (first_name, last_name, email) VALUES
-    ('Alice', 'Dupont', 'alice.dupont@example.com'),
-    ('Bob', 'Martin', 'bob.martin@example.com'),
-    ('Charlie', 'Lemoine', 'charlie.lemoine@example.com'),
-    ('David', 'Bernard', 'david.bernard@example.com'),
-    ('Emma', 'Morel', 'emma.morel@example.com');
-
+    INSERT INTO student (first_name, last_name, age) VALUES
+    ('Alice', 'Dupont', 15),
+    ('Bob', 'Martin', 20),
+    ('Charlie', 'Lemoine', 30),
+    ('David', 'Bernard', 45),
+    ('Emma', 'Morel', 60);
+    
     GRANT ALL ON data.* TO 'root'@'%';
