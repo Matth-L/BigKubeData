@@ -1,5 +1,8 @@
 FROM python:3.11-slim
 
+ARG PASSWORD
+ENV PASSWORD=$PASSWORD
+
 WORKDIR /api
 
 COPY requirements.txt requirements.txt
