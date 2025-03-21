@@ -1,4 +1,4 @@
-# Kubernetes Minikube Cluster with Elasticsearch, MySQL, and Custom API
+# Kubernetes Minikube Cluster with Elasticsearch, Kibana, MySQL, and Custom API
 
 ## Overview 📝
 
