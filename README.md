@@ -23,6 +23,7 @@ Opting for a **custom Python API** allowed us to:
 Start Minikube:
 ```sh
 minikube start
+minikube dashboard &
 ```
 
 ### 2. Deploy Elasticsearch & Kibana 🕵️‍♂️
@@ -43,12 +44,17 @@ Build and deploy the Python API container:
 ```sh
 eval $(minikube docker-env)
 
-PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
 docker build --build-arg PASSWORD=$(echo $PASSWORD) -t send_py api
 
 kubectl apply -f k8s/python-api.yaml
 ```
+### 5. Connect to Elasticsearch
 
+```sh
+PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data.elastic | base64decode}}')
+echo $PASSWORD
+kubectl port-forward service/quickstart-kb-http 5601 # use the password to connect
+```
 ## Usage
 
 Once deployed, the Python API will:
