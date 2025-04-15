@@ -27,6 +27,13 @@ minikube dashboard &
 ```
 
 ### 2. Deploy Elasticsearch & Kibana 🕵️‍♂️
+
+Install Elastic CRD : 
+```sh
+kubectl create -f https://download.elastic.co/downloads/eck/2.16.1/crds.yaml 
+kubectl apply -f https://download.elastic.co/downloads/eck/2.16.1/operator.yaml  
+```
+
 Deploy Elasticsearch and Kibana:
 ```sh
 kubectl apply -f k8s/elasticsearch.yaml
@@ -34,15 +41,19 @@ kubectl apply -f k8s/kibana.yaml
 ```
 
 ### 3. MySQL Database Setup 🗃️
+
 Set up MySQL and initialize with data:
 ```sh
+kubectl create configmap mysql-config --from-env-file=.env
+kubectl create secret generic mysql-secret --from-env-file=.env
 kubectl apply -f k8s/mysql-deployment.yaml
 ```
 
 ### 4. Custom Python API 🐍
+
 Build and deploy the Python API container:
 ```sh
-eval $(minikube docker-env)
+eval $(minikube docker-env) # to build inside minikube
 
 docker build --build-arg PASSWORD=$(echo $PASSWORD) -t send_py api
 
@@ -55,14 +66,12 @@ PASSWORD=$(kubectl get secret quickstart-es-elastic-user -o go-template='{{.data
 echo $PASSWORD
 kubectl port-forward service/quickstart-kb-http 5601 # use the password to connect
 ```
+
+Elastic will be available here : http://localhost:5601
+
 ## Usage
 
 Once deployed, the Python API will:
 1. Connect to MySQL 🖧
 2. Fetch data and send it to Elasticsearch 🔄
 3. Insert random data into MySQL for real-time simulation ⏱️
-
-You can monitor data in Kibana via Minikube dashboard:
-```sh
-minikube dashboard &
-```
